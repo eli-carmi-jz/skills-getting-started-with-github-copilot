@@ -77,7 +77,7 @@ activities = {
     }
 }
 
-
+#test helper functions
 def get_activity_or_404(activity_name: str):
     activity = activities.get(activity_name)
     if activity is None:
