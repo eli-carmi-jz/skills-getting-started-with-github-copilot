@@ -5,7 +5,7 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -78,24 +78,29 @@ activities = {
 }
 
 
+def get_activity_or_404(activity_name: str):
+    activity = activities.get(activity_name)
+    if activity is None:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    return activity
+
+
 @app.get("/")
 def root():
     return RedirectResponse(url="/static/index.html")
 
 
 @app.get("/activities")
-def get_activities():
+def get_activities(response: Response):
+    response.headers["Cache-Control"] = "no-store"
     return activities
+
 
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
     """Sign up a student for an activity"""
-    # Validate activity exists
-    if activity_name not in activities:
-        raise HTTPException(status_code=404, detail="Activity not found")
-
-    # Get the specific activity
-    activity = activities[activity_name]
+    activity = get_activity_or_404(activity_name)
 
     # Validate student is not already signed up
     if email in activity["participants"]:
@@ -104,3 +109,15 @@ def signup_for_activity(activity_name: str, email: str):
     # Add student
     activity["participants"].append(email)
     return {"message": f"Signed up {email} for {activity_name}"}
+
+
+@app.delete("/activities/{activity_name}/participants")
+def unregister_from_activity(activity_name: str, email: str):
+    """Remove a student from an activity"""
+    activity = get_activity_or_404(activity_name)
+
+    if email not in activity["participants"]:
+        raise HTTPException(status_code=404, detail="Student is not signed up for this activity")
+
+    activity["participants"].remove(email)
+    return {"message": f"Removed {email} from {activity_name}"}
